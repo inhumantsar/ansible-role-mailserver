@@ -1,0 +1,29 @@
+galaxy_info:
+  author: Shaun Martin
+  description: Stands up a Postfix/Dovecot as a Docker Compose based service.
+  license: BSD
+  min_ansible_version: 2.1
+  platforms:
+  - name: EL
+    versions:
+      - 6
+      - 7
+  - name: Debian
+    versions:
+    - jessie
+  - name: Ubuntu
+    versions:
+    - trusty
+    - xenial
+
+  galaxy_tags:
+    - mail
+    - postfix
+    - dovecot
+    - docker
+    - compose
+    - docker-compose
+
+dependencies:
+   - geerlingguy.docker
+  

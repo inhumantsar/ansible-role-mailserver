@@ -1,0 +1,110 @@
+---
+# tasks file for docker-compose-mailserver
+- debug: msg="Starting tasks from docker-compose-mailserver..."
+
+
+# ignore_errors on this because it tries to start the service and can't
+- name: Install docker
+  include_role:
+    name: geerlingguy.docker
+    # vars:
+    #   docker_install_compose: true
+    #   docker_compose_version: "{{ mailserver_pypi_docker_compose_version|default(omit) }}"
+  ignore_errors: true
+
+# easy pre-reqs
+- name: Ensure the docker and docker-compose python libs are installed.
+  pip:
+    name: docker
+    version: "{{ mailserver_pypi_docker_version|default(omit) }}"
+  pip:
+    name: docker-compose
+    version: "{{ mailserver_pypi_docker_compose_version|default(omit) }}"
+
+- name: make sure mount dirs exist
+  file:
+    state: directory
+    path: "{{ item }}"
+  with_items:
+    - "{{ mailserver_datapath }}"
+    - "{{ mailserver_statepath }}"
+    - "{{ mailserver_configpath }}"
+
+
+# do the thing
+- name: Launch services with docker-compose.yml
+  docker_service:
+    state: "{{ mailserver_state }}"
+    project_name: "{{ mailserver_env }}_{{ mailserver_name }}"
+    pull: yes
+    definition:
+      version: "2.1"
+      services:
+        mailserver:
+          image: "tvial/docker-mailserver:latest"
+          hostname: "{{ mailserver_hostname }}"
+          domainname: "{{ mailserver_domain }}"
+          volumes:
+            - "{{ mailserver_datapath }}:/var/mail"
+            - "{{ mailserver_statepath }}:/var/mail-state"
+            - "{{ mailserver_configpath }}:/tmp/docker-mailserver"
+          ports:
+            - "25:25"
+            - "143:143"
+            - "587:587"
+            - "993:993"
+          environment:
+            - ENABLE_SPAMASSASSIN=1
+            - ENABLE_CLAMAV=1
+            - ENABLE_FAIL2BAN=1
+            - ENABLE_POSTGREY=1
+            - SSL_TYPE="self-signed"
+            - ONE_DIR=1
+            - DMS_DEBUG=0
+          cap_add:
+            - NET_ADMIN
+  register: output
+
+- debug: var=output
+
+# inline unit testing
+- name: Confirm services launched successfully
+  assert:
+    that:
+      - "mailserver.{{ mailserver_env }}{{ mailserver_name }}_mailserver_1.state.running"
+  when: mailserver_state == "present"
+
+- name: create dkim keys
+  shell: "docker exec {{ mailserver_env }}{{ mailserver_name }}_mailserver_1 /bin/bash /usr/local/bin/generate-dkim-domain {{ mailserver_domain }}"
+  when: mailserver_state == "present"
+
+- name: add users
+  shell: docker exec {{ mailserver_env }}{{ mailserver_name }}_mailserver_1 sh -c "touch /tmp/moo && /usr/local/bin/addmailuser {{ item.email }} {{ item.password }}"
+  when: mailserver_state == "present"
+  with_items:
+    - "{{ mailserver_users }}"
+
+- name: add aliases
+  shell: docker exec {{ mailserver_env }}{{ mailserver_name }}_mailserver_1 /bin/bash /usr/local/bin/addalias "{{ item.email }}" "{{ item.recipient }}"
+  when: mailserver_state == "present"
+  with_items:
+    - "{{ mailserver_aliases }}"
+
+- name: create dir for SSL certs
+  shell: docker exec {{ mailserver_env }}{{ mailserver_name }}_mailserver_1 mkdir /ssl
+  when: mailserver_state == "present"
+
+- name: create SSL certificates
+  shell: |
+    docker exec {{ mailserver_env }}{{ mailserver_name }}_mailserver_1  \
+    openssl req -new -x509 -days 365 -nodes \
+    -out /ssl/{{ mailserver_hostname }}.{{ mailserver_domain }}-cert.pem \
+    -keyout /ssl/{{ mailserver_hostname }}.{{ mailserver_domain }}-key.pem \
+    -subj "/C=CA/ST=BC/L=VANCOUVER/O=IT/CN={{ mailserver_hostname }}.{{ mailserver_domain }}"
+  when: mailserver_state == "present"
+
+- name: combine certificates into a single file for courier
+  shell: |
+    docker exec {{ mailserver_env }}{{ mailserver_name }}_mailserver_1  \
+    sh -c "cat /ssl/{{ mailserver_hostname }}.{{ mailserver_domain }}-key.pem /ssl/{{ mailserver_hostname }}.{{ mailserver_domain }}-cert.pem > /ssl/{{ mailserver_hostname }}.{{ mailserver_domain }}-combined.pem"
+  when: mailserver_state == "present"

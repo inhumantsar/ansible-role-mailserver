@@ -1,0 +1,26 @@
+---
+mailserver_env: "dev"
+mailserver_name: "mailserver"
+mailserver_state: "present"
+
+mailserver_domain: "somedomain.com"
+mailserver_hostname: "mail"
+
+# library versions, set these to override latest
+# mailserver_pypi_docker_version: 'x.x.x'
+mailserver_pypi_docker_compose_version: '1.15.0'
+
+mailserver_port: "80"
+
+# all postgres and mailserver data will be kept here
+mailserver_datapath: "/srv/mailserver/data"
+mailserver_statepath: "/srv/mailserver/state"
+mailserver_configpath: "/srv/mailserver/config"
+
+mailserver_users:
+  - email: "admin@{{ mailserver_domain }}"
+    password: "somepassword"
+
+mailserver_aliases:
+  - email: "postmaster@{{ mailserver_domain }}"
+    recipient: "admin@{{ mailserver_domain }}"
