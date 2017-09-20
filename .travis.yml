@@ -25,6 +25,7 @@ install:
   - printf '[defaults]\nroles_path=../' > ansible.cfg
 
 script:
+  - ansible-galaxy install -r requirements.yml
   - ansible-playbook test.yml --syntax-check
   - ansible-playbook test.yml -c local -b
 
