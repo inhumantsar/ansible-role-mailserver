@@ -7,16 +7,15 @@
 - name: Install docker
   include_role:
     name: geerlingguy.docker
-    # vars:
-    #   docker_install_compose: true
-    #   docker_compose_version: "{{ mailserver_pypi_docker_compose_version|default(omit) }}"
   ignore_errors: true
 
 # easy pre-reqs
-- name: Ensure the docker and docker-compose python libs are installed.
+- name: Ensure the docker python libs are installed.
   pip:
     name: docker
     version: "{{ mailserver_pypi_docker_version|default(omit) }}"
+
+- name: Ensure the docker-compose python libs are installed.
   pip:
     name: docker-compose
     version: "{{ mailserver_pypi_docker_compose_version|default(omit) }}"
