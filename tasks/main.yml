@@ -43,6 +43,7 @@
           image: "tvial/docker-mailserver:latest"
           hostname: "{{ mailserver_hostname }}"
           domainname: "{{ mailserver_domain }}"
+          restart: always
           volumes:
             - "{{ mailserver_datapath }}:/var/mail"
             - "{{ mailserver_statepath }}:/var/mail-state"
